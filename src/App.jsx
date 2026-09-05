@@ -7,6 +7,7 @@ import StatusMessage from './components/StatusMessage';
 import EditModal from './components/EditModal';
 
 function App() {
+  // ===== STATE =====
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentFilter, setCurrentFilter] = useState('all');
@@ -14,7 +15,9 @@ function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [backendStatus, setBackendStatus] = useState('Checking...');
 
+  // ===== LOCAL STORAGE =====
   const loadFromLocalStorage = () => {
     const saved = localStorage.getItem('users');
     if (saved) {
@@ -28,6 +31,7 @@ function App() {
     localStorage.setItem('users', JSON.stringify(userList));
   };
 
+  // ===== FILTER USERS =====
   const getFilteredUsers = () => {
     let filtered = [...users];
     if (searchTerm.trim() !== '') {
@@ -43,10 +47,12 @@ function App() {
     return filtered;
   };
 
+  // ===== COUNTERS =====
   const totalCount = users.length;
   const apiCount = users.filter(u => u.source === 'api').length;
   const localCount = users.filter(u => u.source !== 'api').length;
 
+  // ===== CRUD OPERATIONS =====
   const addUser = (name, email, course) => {
     if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
       return 'duplicate';
@@ -82,9 +88,10 @@ function App() {
     saveToLocalStorage(updatedUsers);
   };
 
+  // ===== FETCH API USERS =====
   const fetchApiUsers = async () => {
     try {
-      setStatus({ message: '⏳ Loading users...', type: 'loading' });
+      setStatus({ message: 'Loading users...', type: 'loading' });
       const response = await fetch('https://jsonplaceholder.typicode.com/users');
       if (!response.ok) throw new Error('Failed to fetch');
       const apiUsers = await response.json();
@@ -103,15 +110,41 @@ function App() {
       setStatus({ message: '', type: '' });
     } catch (error) {
       console.error(error);
-      setStatus({ message: '❌ Unable to load users.', type: 'error' });
+      setStatus({ message: 'Unable to load users.', type: 'error' });
     }
   };
 
+  // ===== BACKEND FUNCTIONS =====
+  const checkBackendStatus = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/status');
+      if (response.ok) {
+        setBackendStatus('✅ Backend Connected');
+      } else {
+        setBackendStatus('⚠️ Backend Error');
+      }
+    } catch (error) {
+      setBackendStatus('❌ Backend Offline');
+    }
+  };
+
+  const testApi = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/users');
+      const data = await response.json();
+      alert('API Response: ' + JSON.stringify(data, null, 2));
+    } catch (error) {
+      alert('Error: ' + error.message);
+    }
+  };
+
+  // ===== DARK MODE =====
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
     localStorage.setItem('darkMode', !darkMode ? 'true' : 'false');
   };
 
+  // ===== USE EFFECTS =====
   useEffect(() => {
     if (localStorage.getItem('darkMode') === 'true') setDarkMode(true);
     loadFromLocalStorage();
@@ -126,8 +159,13 @@ function App() {
     }
   }, [darkMode]);
 
+  useEffect(() => {
+    checkBackendStatus();
+  }, []);
+
   const filteredUsers = getFilteredUsers();
 
+  // ===== RENDER =====
   return (
     <div className="gradient-bg transition-colors duration-500">
       <div className="max-w-7xl mx-auto">
@@ -138,6 +176,24 @@ function App() {
           darkMode={darkMode}
           toggleDarkMode={toggleDarkMode}
         />
+
+        {/* ===== BACKEND STATUS ===== */}
+        <div className="glass-card p-4 mb-4">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🖥️</span>
+            <div>
+              <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Backend Status</div>
+              <div className="text-sm font-semibold text-gray-800 dark:text-white">{backendStatus}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* ===== BACKEND API TEST ===== */}
+        <div className="glass-card p-4 mb-4">
+          <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-3">🌐 Backend API Test</h3>
+          <button onClick={testApi} className="btn-primary">Test /api/users</button>
+        </div>
+
         <AddUserForm onAddUser={addUser} />
         <SearchBar
           searchTerm={searchTerm}
@@ -146,24 +202,20 @@ function App() {
           onFilterChange={setCurrentFilter}
         />
         <StatusMessage message={status.message} type={status.type} />
-        <section className="glass-card p-6 md:p-8 animate-slide-up delay-3">
+        
+        <section className="glass-card p-6 md:p-8">
           <div className="flex justify-between items-center mb-5">
             <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-3">
               <span className="w-10 h-10 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/25">
                 <i className="fas fa-users"></i>
               </span>
               Users
-              <span className="text-sm font-normal text-gray-400 dark:text-gray-500">
-                — Manage all users
-              </span>
+              <span className="text-sm font-normal text-gray-400 dark:text-gray-500">— Manage all users</span>
             </h2>
           </div>
-          <UserList
-            users={filteredUsers}
-            onEdit={editUser}
-            onDelete={deleteUser}
-          />
+          <UserList users={filteredUsers} onEdit={editUser} onDelete={deleteUser} />
         </section>
+        
         <EditModal
           isOpen={isModalOpen}
           user={editingUser}
